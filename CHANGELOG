@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [1.0.0] - 2025-06-13
+
+### Initial Release 🎉
+
+This is the first public release of the **MCP Cloud Asset Tool**. This version provides a single, powerful tool for listing Google Cloud Platform (GCP) assets, exposed via the Multi-purpose Copilot Protocol (MCP).
+
+### Added
+
+- **Core `list_gcp_assets` Tool:**
+  - Integration with the Google Cloud Asset API v1 to fetch cloud resources.
+  - Requires a target Google Cloud `project_id`.
+  - Supports optional filtering by a list of `asset_types` (e.g., "storage.googleapis.com/Bucket").
+- **MCP Server Implementation:**
+  - Built using the `mcp-go` library to expose functionality as a compliant tool.
+  - Runs as a standard I/O (stdio) server, ready for integration with MCP-compatible clients.
+- **JSON Output Formatting:**
+  - Returns a JSON array of asset summaries upon successful execution.
+  - Each summary includes the asset's `name`, `asset_type`, and `location`.
+- **Project Scaffolding:**
+  - Initial `go.mod` to manage dependencies (`cloud.google.com/go/asset` and `github.com/mark3labs/mcp-go`).
+  - `README.md` with basic setup and usage instructions.
+  - `LICENSE` file (e.g., Apache 2.0 or MIT).
+  - Basic `.gitignore` for Go projects.
+
+[1.0.0]: https://github.com/benjaminwestern/mcp-gcp-asset-inventory/releases/tag/v1.0.0

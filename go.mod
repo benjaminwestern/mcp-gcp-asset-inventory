@@ -1,6 +1,6 @@
-module benjaminwestern.io/asset-inventory-mcp
+module github.com/benjaminwestern/mcp-gcp-asset-inventory
 
-go 1.24.3
+go 1.24.4
 
 require (
 	cloud.google.com/go/asset v1.21.1
