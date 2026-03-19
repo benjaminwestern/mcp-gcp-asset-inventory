@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-03-19
+
+### Added
+
+- Added `search_gcp_resources` for `searchAllResources`.
+- Added `search_gcp_iam_policies` for `searchAllIamPolicies`.
+- Added `get_gcp_asset_history` for `batchGetAssetsHistory`.
+- Added `query_gcp_assets` for `queryAssets`.
+- Added `get_gcp_effective_iam_policies` for
+  `effectiveIamPolicies.batchGet`.
+- Added unit tests for request parsing and validation helpers.
+
+### Changed
+
+- Expanded `list_gcp_assets` to support `parent`, pagination, relationship
+  snapshots, content-type selection, and point-in-time reads.
+- Upgraded the repository to Go `1.26.1`.
+- Refreshed direct and indirect Go dependencies to their latest available
+  versions in the module graph.
+
 ## [1.0.0] - 2025-06-13
 
 ### Initial Release 🎉

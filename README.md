@@ -1,110 +1,80 @@
-# Google Cloud Asset Inventory - MCP Server
+# Google Cloud Asset Inventory MCP server
 
-This project provides a basic Model Context Protocol (MCP) server written in Go. It exposes the Google Cloud Asset Inventory API as a tool, allowing language models and other MCP-compatible clients to list cloud assets in a specified Google Cloud project.
-
-This server is designed to be run as a local subprocess by an MCP client, communicating over standard input and standard output (`stdio`).
+This repository contains a Go-based MCP server for Google Cloud Asset
+Inventory. It runs over `stdio` and exposes a set of read-only tools for
+listing assets, searching resources, searching IAM policies, querying asset
+history, issuing SQL queries, and retrieving effective IAM policies.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed and configured:
-
-1. **Go**: A recent version of the Go programming language (version 1.21 or newer is recommended). You can download it from the [official Go website](https://go.dev/dl/).
-2. **Google Cloud SDK**: You must have the `gcloud` command-line tool installed and authenticated. The server uses Application Default Credentials for authorisation, which is most easily configured by logging in with the SDK.
-
-    Run the following command to authenticate:
-
-    ```sh
-    gcloud auth application-default login
-    ```
-
-3. **Enabled APIs**: Ensure the **Cloud Asset API** is enabled for the Google Cloud project you intend to query. You can manage APIs in the Google Cloud Console.
-
-## Getting Started
-
-First, retrieve the necessary Go package dependencies for the project. Open your terminal in the project directory and run:
+You need Google Cloud credentials that can call the Cloud Asset Inventory API.
+The server uses Application Default Credentials, so the most common setup is
+the Google Cloud CLI:
 
 ```sh
-go mod tidy
+gcloud auth application-default login
 ```
 
-## How to Build the Server
+You also need the Cloud Asset API enabled for the project, folder, or
+organization you want to inspect.
 
-You can compile the server into a single executable file. The build process will vary slightly depending on your target operating system.
+This repository is pinned to Go `1.26.1`. If you use `mise`, run:
 
-### Standard Build (for your current OS)
+```sh
+mise install
+```
 
-To build the executable for your current operating system and architecture, run the following command. This will create a binary named `mcp-asset-server` (or `mcp-asset-server.exe` on Windows) in your project directory.
+## Build and test
+
+You can build and verify the server locally with the standard Go toolchain.
 
 ```sh
 go build -o mcp-asset-server .
+go test ./...
 ```
 
-### Cross-Compilation (Building for other Operating Systems)
+## Live smoke test
 
-Go makes it straightforward to build an executable for a different operating system from the one you are developing on. This is achieved by setting the `GOOS` (target operating system) and `GOARCH` (target architecture) environment variables.
-
-#### Building for Linux (amd64)
-
-From macOS or Windows, you can build a Linux binary using this command:
+You can run a real end-to-end MCP smoke test against Cloud Asset Inventory by
+passing a project ID to the helper script. The script uses your local
+Application Default Credentials, builds the current server, initializes MCP
+over `stdio`, and calls `list_gcp_assets`.
 
 ```sh
-GOOS=linux GOARCH=amd64 go build -o mcp-asset-server-linux .
+./scripts/smoke-test-mcp.sh your-project-id
 ```
 
-#### Building for macOS (amd64 / Apple Silicon)
+The first argument is required and must be the target Google Cloud project ID.
+You can optionally pass a second argument to change the requested page size.
 
-* For Intel-based Macs (amd64):
+## Available tools
 
-    ```sh
-    GOOS=darwin GOARCH=amd64 go build -o mcp-asset-server-macos-amd64 .
-    ```
+The server exposes Cloud Asset Inventory read APIs as MCP tools. Each tool
+returns JSON text.
 
-* For Apple Silicon Macs (M1/M2/M3, arm64):
+- `list_gcp_assets`
+  Lists assets for a `project_id` or `parent` scope and supports asset type
+  filters, pagination, snapshot timestamps, and relationship snapshots.
+- `search_gcp_resources`
+  Wraps `searchAllResources` for free-text and fielded resource search across a
+  project, folder, or organization.
+- `search_gcp_iam_policies`
+  Wraps `searchAllIamPolicies` for IAM binding search across a project, folder,
+  or organization.
+- `get_gcp_asset_history`
+  Wraps `batchGetAssetsHistory` for historical snapshots of up to 100 named
+  assets.
+- `query_gcp_assets`
+  Wraps `queryAssets` for BigQuery-compatible SQL queries and follow-up reads
+  with a `job_reference`.
+- `get_gcp_effective_iam_policies`
+  Wraps `effectiveIamPolicies.batchGet` for effective policy lookups on up to
+  20 full resource names.
 
-    ```sh
-    GOOS=darwin GOARCH=arm64 go build -o mcp-asset-server-macos-arm64 .
-    ```
+## Example MCP client usage
 
-#### Building for Windows (amd64)
-
-To build a Windows executable (which will have a `.exe` suffix), use this command:
-
-```sh
-GOOS=windows GOARCH=amd64 go build -o mcp-asset-server.exe .
-```
-
-## Usage with Python ADK
-
-The primary use for this MCP server is to be loaded as a toolset by an agent, such as one built with the `google-adk` Python library. The agent will manage the lifecycle of the server, running it as a subprocess and communicating with it via `stdio`.
-
-First, ensure you have the `google-adk` library installed:
-
-```sh
-pip install google-adk
-```
-
-Next, you can define an agent in Python that uses your compiled binary. In this example, the `MCPToolset` is configured to run the macOS `arm64` binary.
-
-**Example `.env` file:**
-
-```plaintext
-GOOGLE_GENAI_USE_VERTEXAI=FALSE
-GOOGLE_API_KEY=PASTE_YOUR_ACTUAL_API_KEY_HERE
-```
-
-**Example `requirements.txt`:**
-
-```plaintext
-google-adk>=1.3.0
-```
-
-**Example `_init_.py`:**
-
-```python
-from . import agent
-```
-
-**Example `agent.py`:**
+You can run this server as a subprocess from any MCP-compatible client. The
+following Python example shows one way to wire it into an ADK agent:
 
 ```python
 from google.adk import Agent
@@ -112,30 +82,49 @@ from google.adk.tools.mcp_tool import MCPToolset
 from google.adk.tools.mcp_tool.mcp_toolset import StdioServerParameters
 
 root_agent = Agent(
-    model="gemini-2.5-pro-preview-06-05",
-    name="root_agent",
-    description="An assist to find content available in Asset Inventory.",
-    instruction="Answer user questions to the best of your knowledge and provide relevant content from Asset Inventory.",
+    model="your-model",
+    name="asset_inventory_agent",
+    description="Answers questions with Cloud Asset Inventory data.",
+    instruction="Use the MCP tools to inspect Google Cloud assets.",
     tools=[
         MCPToolset(
             connection_params=StdioServerParameters(
-                command="./asset-inventory-mcp/mcp-asset-server-macos-arm64",
+                command="./mcp-asset-server",
                 args=["stdio"],
             ),
         ),
     ],
 )
-
-if __name__ == "__main__":
-    # The agent will automatically start the MCP server subprocess.
-    # The agent now has access to the `list_gcp_assets` tool.
-    print(root_agent.chat("Hi, can you list the GCS buckets in the 'your-gcp-project-id' project?"))
-
 ```
 
-### How It Works
+## API coverage notes
 
-1. **Build the binary**: Compile the Go server for your specific OS and architecture as described in the "How to Build" section.
-2. **Update the path**: In your Python script, change the `command` value inside `StdioServerParameters` to the correct path of the binary you just built.
-3. **Run the agent**: When you execute the Python script, the `google-adk` framework automatically starts the Go program specified in the `command` path.
-4. **Communicate**: The agent communicates with the server over `stdio`, discovers the `list_gcp_assets` tool, and can now use it to fulfill user requests.
+As of March 19, 2026, this MCP server matches a focused subset of the Cloud
+Asset Inventory v1 REST API, not the full specification documented in the
+[official Cloud Asset Inventory REST reference](https://docs.cloud.google.com/asset-inventory/docs/reference/rest).
+
+The current MCP tools cover these v1 methods:
+
+- `assets.list`
+- `searchAllResources`
+- `searchAllIamPolicies`
+- `batchGetAssetsHistory`
+- `queryAssets`
+- `effectiveIamPolicies.batchGet`
+
+The server does not yet expose the remaining v1 REST surface, including:
+
+- `analyzeIamPolicy`
+- `analyzeIamPolicyLongrunning`
+- `analyzeMove`
+- `analyzeOrgPolicies`
+- `analyzeOrgPolicyGovernedAssets`
+- `analyzeOrgPolicyGovernedContainers`
+- `exportAssets`
+- `feeds` CRUD operations
+- `operations.get`
+- `savedQueries` CRUD operations
+
+It also does not yet mirror every optional request shape for the methods above.
+For example, the current `query_gcp_assets` tool does not expose `outputConfig`
+for writing query results externally.
